@@ -1,0 +1,52 @@
+# Worker Dockerfile with Piper TTS and Rhubarb Lip Sync
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    wget \
+    unzip \
+    ffmpeg \
+    libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Piper TTS
+ENV PIPER_VERSION=2023.11.14-2
+RUN mkdir -p /opt/piper && \
+    cd /opt/piper && \
+    wget -q "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_x86_64.tar.gz" && \
+    tar -xzf piper_linux_x86_64.tar.gz && \
+    rm piper_linux_x86_64.tar.gz && \
+    chmod +x piper/piper && \
+    ln -s /opt/piper/piper/piper /usr/local/bin/piper
+
+# Create voices directory and download default voice
+RUN mkdir -p /opt/piper/voices && \
+    cd /opt/piper/voices && \
+    wget -q "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx" && \
+    wget -q "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+
+# Install Rhubarb Lip Sync
+ENV RHUBARB_VERSION=1.13.0
+RUN mkdir -p /opt/rhubarb && \
+    cd /opt/rhubarb && \
+    wget -q "https://github.com/DanielSWolf/rhubarb-lip-sync/releases/download/v${RHUBARB_VERSION}/Rhubarb-Lip-Sync-${RHUBARB_VERSION}-Linux.zip" && \
+    unzip -q "Rhubarb-Lip-Sync-${RHUBARB_VERSION}-Linux.zip" && \
+    rm "Rhubarb-Lip-Sync-${RHUBARB_VERSION}-Linux.zip" && \
+    chmod +x "Rhubarb-Lip-Sync-${RHUBARB_VERSION}-Linux/rhubarb" && \
+    ln -s "/opt/rhubarb/Rhubarb-Lip-Sync-${RHUBARB_VERSION}-Linux/rhubarb" /usr/local/bin/rhubarb
+
+# Copy requirements and install Python dependencies
+COPY worker/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY worker/ .
+
+# Create data directory
+RUN mkdir -p /data/audio
+
+# Run the worker
+CMD ["python", "-u", "worker.py"]
