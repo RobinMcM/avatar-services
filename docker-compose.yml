@@ -24,13 +24,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - VALKEY_HOST=valkey
-      - VALKEY_PORT=6379
-      - DATA_DIR=/data
-      - AUDIO_BASE_URL=http://localhost:8080/audio
-      - LOG_LEVEL=INFO
-      - MAX_CONCURRENT_REQUESTS=10
-      - SYNC_TIMEOUT_SECONDS=60
+      - VALKEY_HOST=${VALKEY_HOST:-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - DATA_DIR=${DATA_DIR:-/data}
+      - AUDIO_BASE_URL=${AUDIO_BASE_URL:-http://localhost:8080/audio}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-10}
+      - SYNC_TIMEOUT_SECONDS=${SYNC_TIMEOUT_SECONDS:-60}
     volumes:
       - shared_data:/data
     depends_on:
@@ -44,11 +44,11 @@ services:
       dockerfile: docker/Dockerfile.worker
     container_name: avatar-worker
     environment:
-      - VALKEY_HOST=valkey
-      - VALKEY_PORT=6379
-      - DATA_DIR=/data
-      - PIPER_MODEL=/opt/piper/voices/en_US-lessac-medium.onnx
-      - LOG_LEVEL=INFO
+      - VALKEY_HOST=${VALKEY_HOST:-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - DATA_DIR=${DATA_DIR:-/data}
+      - PIPER_MODEL=${PIPER_MODEL:-/opt/piper/voices/en_US-lessac-medium.onnx}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - shared_data:/data
     depends_on:
