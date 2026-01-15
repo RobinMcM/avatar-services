@@ -514,7 +514,7 @@
     <div class="container">
         <header>
             <h1>Avatar Service</h1>
-            <p class="subtitle">Real-time TTS with synchronized lip and eye animations</p>
+            <p class="subtitle">Photoreal 2D avatars with synchronized lip and eye animations</p>
         </header>
 
         <div class="main-content">
@@ -536,6 +536,13 @@
                         id="text-input" 
                         placeholder="Enter text for the avatar to speak..."
                     >Hello! I'm a 2D avatar powered by AI. I can speak any text you give me, and my lips will sync perfectly with the audio. Pretty cool, right?</textarea>
+                </div>
+
+                <div class="input-group">
+                    <label for="avatar-select">Avatar</label>
+                    <select id="avatar-select">
+                        <option value="realistic_female_v1">Realistic Female v1</option>
+                    </select>
                 </div>
 
                 <div class="input-group">
@@ -561,6 +568,16 @@
                         <span id="render-btn-text">Generate & Play</span>
                     </button>
                     <button class="btn-secondary" id="stop-btn">Stop</button>
+                </div>
+
+                <div class="input-group" style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="calibration-toggle" style="width: auto;">
+                        <span>Calibration Mode</span>
+                    </label>
+                    <div id="calibration-info" style="display: none; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-top: 0.5rem;">
+                        <!-- Calibration info will be populated by JS -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -589,6 +606,7 @@
         </div>
     </div>
 
+    <script src="compositor.js"></script>
     <script src="demo.js"></script>
 </body>
 </html>

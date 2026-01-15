@@ -7,9 +7,13 @@ A production-ready avatar animation service that generates TTS audio and synchro
 - **Text-to-Speech**: Uses [Piper TTS](https://github.com/rhasspy/piper) for high-quality, local CPU-based speech synthesis
 - **Lip Sync**: Extracts mouth animation cues using [Rhubarb Lip Sync](https://github.com/DanielSWolf/rhubarb-lip-sync)
 - **Eye Animation**: Generates realistic blink and saccade events
+- **Photoreal Avatars**: Composite-based 2D avatars using real photos/video with masked layers
+- **Avatar Packs**: Modular system for custom avatar assets (base face, mouth sprites, eye frames)
+- **Calibration Tools**: Browser-based calibration overlay for fine-tuning avatar positioning
+- **Micro-Motion**: Subtle idle animations (head bob, breathing, natural blinks)
 - **Caching**: Results cached by content hash for instant repeated requests
 - **Job Queue**: Asynchronous processing via Valkey (Redis-compatible)
-- **Web Demo**: Canvas-based 2D avatar with smooth interpolation
+- **Web Demo**: Photoreal 2D avatar renderer with smooth interpolation and compositing
 
 ## Architecture
 
@@ -143,6 +147,53 @@ curl http://localhost:8000/health
 | `en_GB-alan-medium` | English (GB) | British male voice |
 
 Additional voices can be downloaded using `scripts/download_voices.sh`.
+
+## Avatar Packs
+
+The web demo uses a photoreal compositing system with modular avatar packs.
+
+### Included Avatar
+
+- **realistic_female_v1**: Placeholder avatar with colored blocks (demonstration only)
+
+### Creating Your Own Avatar Pack
+
+1. **Prepare Assets:**
+   - Base face image (512x640px PNG)
+   - Mouth viseme spritesheet (7 frames: REST, AA, EE, OH, OO, FF, TH)
+   - Eye state images (open, half, closed)
+   - Alpha masks for mouth and eyes
+
+2. **Create Avatar Directory:**
+   ```bash
+   mkdir -p web-demo/avatars/my_avatar
+   ```
+
+3. **Add Assets:**
+   - Copy your images to the avatar directory
+   - Create `manifest.json` (see `realistic_female_v1` for template)
+   - Set anchor coordinates for mouth/eyes positioning
+
+4. **Test and Calibrate:**
+   - Load avatar in demo
+   - Enable "Calibration Mode"
+   - Use arrow keys to adjust positioning
+   - Coordinates save in browser localStorage
+
+### Asset Requirements
+
+| Asset | Size | Format | Description |
+|-------|------|--------|-------------|
+| `base_face.png` | 512x640px | PNG/WebP | Neutral face, front-facing |
+| `mouth_sprites.png` | 1120x120px | PNG/WebP | 7 viseme frames (160x120 each) |
+| `mouth_mask.png` | 160x120px | PNG | Grayscale mask with feathered edges |
+| `eyes_open.png` | 232x80px | PNG/WebP | Eyes fully open |
+| `eyes_half.png` | 232x80px | PNG/WebP | Eyes half-closed |
+| `eyes_closed.png` | 232x80px | PNG/WebP | Eyes closed (blink) |
+| `eyes_mask.png` | 232x80px | PNG | Grayscale mask for eyes |
+| `idle_loop.webm` | 512x640px | WebM (optional) | Seamless idle animation |
+
+**Detailed instructions:** See `web-demo/avatars/realistic_female_v1/README.md`
 
 ## Response Format
 
@@ -399,14 +450,63 @@ avatar-services/
 └── README.md
 ```
 
+## Photoreal Avatar System
+
+The web demo uses a sophisticated photoreal compositor that blends real photo/video assets in real-time.
+
+### How It Works
+
+1. **Layered Composition:**
+   - Base face layer (static image or idle video loop)
+   - Eyes layer (blends between open/half/closed states)
+   - Mouth layer (extracts frames from spritesheet based on visemes)
+   - All layers composited with alpha masks for seamless blending
+
+2. **Animation Timeline:**
+   - API returns mouth cues (viseme + timestamp)
+   - API returns eye events (blinks, saccades)
+   - Compositor interpolates smoothly between states
+   - No frame snapping or jarring transitions
+
+3. **Micro-Motion (Idle):**
+   - Subtle head bobbing (2-3px)
+   - Slight rotation/tilt
+   - Breathing motion (scale pulsing)
+   - Natural blinks every 3-6 seconds
+   - All configurable per-avatar
+
+### Calibration
+
+The built-in calibration system allows fine-tuning avatar positioning without editing code:
+
+1. Enable "Calibration Mode" checkbox
+2. Green rectangle shows selected anchor (mouth or eyes)
+3. Use keyboard controls:
+   - **Arrow keys:** Move anchor position
+   - **Shift+Arrows:** Resize anchor
+   - **Tab:** Switch between mouth/eyes
+   - **C:** Toggle calibration mode
+4. Adjustments save to browser localStorage
+5. Copy final coordinates to `manifest.json` for persistence
+
+### Performance
+
+- All rendering happens in browser using Canvas 2D
+- No WebGL required (works on all devices)
+- Typical frame rate: 60fps
+- Total asset size per avatar: <1MB (with optimization)
+- Instant loading with cached assets
+
 ## Future Enhancements
 
 - [ ] DigitalOcean Spaces integration for audio storage
 - [ ] WebSocket streaming for real-time playback
 - [ ] Additional language support
-- [ ] Custom avatar sprite support
-- [ ] Emotion detection and expression
+- [ ] Additional photoreal avatar packs
+- [ ] Emotion detection and dynamic expression switching
 - [ ] Background music mixing
+- [ ] WebGL renderer for advanced effects
+- [ ] Video export functionality
 
 ## License
 
