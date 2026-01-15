@@ -75,7 +75,8 @@ async function init() {
 async function loadAvatarList() {
     // For now, hardcoded. Could be dynamic by scanning avatars/ directory
     const avatars = [
-        { id: 'realistic_female_v1', name: 'Realistic Female v1' }
+        { id: 'realistic_female_v1', name: 'Realistic Female v1 (Illustrated)' },
+        { id: 'real_photo_avatar', name: 'Real Photo Avatar' }
     ];
     
     avatarSelect.innerHTML = '';

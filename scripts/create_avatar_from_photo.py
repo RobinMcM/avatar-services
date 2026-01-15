@@ -39,7 +39,7 @@ def create_base_face(source_img, output_path, target_size=(512, 640)):
         img = img.crop((0, top, width, top + new_height))
     
     # Resize to target
-    img = img.resize(target_size, Image.Resampling.LANCZOS)
+    img = img.resize(target_size, Image.LANCZOS)
     
     # Enhance slightly
     enhancer = ImageEnhance.Contrast(img)
@@ -62,7 +62,7 @@ def extract_mouth_region(source_img, mouth_bbox, output_path, size=(160, 120)):
     
     # Crop mouth area
     mouth = source_img.crop(mouth_bbox)
-    mouth = mouth.resize(size, Image.Resampling.LANCZOS)
+    mouth = mouth.resize(size, Image.LANCZOS)
     
     # Enhance
     enhancer = ImageEnhance.Contrast(mouth)
@@ -90,25 +90,25 @@ def create_mouth_variations(base_mouth, output_dir):
         
         # Apply transformations based on viseme
         if viseme == 'AA':  # Open wide
-            mouth = mouth.resize((160, 140), Image.Resampling.LANCZOS)
+            mouth = mouth.resize((160, 140), Image.LANCZOS)
             mouth = mouth.crop((0, 10, 160, 130))
         elif viseme == 'EE':  # Wide smile
-            mouth = mouth.resize((180, 110), Image.Resampling.LANCZOS)
+            mouth = mouth.resize((180, 110), Image.LANCZOS)
             mouth = mouth.crop((10, 0, 170, 120))
         elif viseme == 'OH':  # Round
-            mouth = mouth.resize((140, 130), Image.Resampling.LANCZOS)
+            mouth = mouth.resize((140, 130), Image.LANCZOS)
             mouth = mouth.crop((0, 5, 140, 125))
             # Paste centered
             temp = Image.new('RGBA', (160, 120), (0, 0, 0, 0))
             temp.paste(mouth, (10, 0))
             mouth = temp
         elif viseme == 'OO':  # Tight round
-            mouth = mouth.resize((120, 120), Image.Resampling.LANCZOS)
+            mouth = mouth.resize((120, 120), Image.LANCZOS)
             temp = Image.new('RGBA', (160, 120), (0, 0, 0, 0))
             temp.paste(mouth, (20, 0))
             mouth = temp
         elif viseme == 'FF':  # Flat
-            mouth = mouth.resize((170, 100), Image.Resampling.LANCZOS)
+            mouth = mouth.resize((170, 100), Image.LANCZOS)
             mouth = mouth.crop((5, 0, 165, 100))
             temp = Image.new('RGBA', (160, 120), (0, 0, 0, 0))
             temp.paste(mouth, (0, 10))
@@ -153,7 +153,7 @@ def extract_eyes_region(source_img, eyes_bbox, output_path, size=(232, 80)):
     
     # Crop eyes area
     eyes = source_img.crop(eyes_bbox)
-    eyes = eyes.resize(size, Image.Resampling.LANCZOS)
+    eyes = eyes.resize(size, Image.LANCZOS)
     
     # Enhance
     enhancer = ImageEnhance.Contrast(eyes)
@@ -177,7 +177,7 @@ def create_eye_states(base_eyes, output_dir):
     
     # Half-closed (crop and squish)
     half = base_eyes.copy()
-    half = half.resize((232, 40), Image.Resampling.LANCZOS)
+    half = half.resize((232, 40), Image.LANCZOS)
     temp = Image.new('RGBA', (232, 80), (0, 0, 0, 0))
     temp.paste(half, (0, 20))
     half_path = os.path.join(output_dir, 'eyes_half.png')
