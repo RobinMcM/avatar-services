@@ -204,14 +204,26 @@ apt-get update && apt-get install -y docker-compose-plugin
 git clone <your-repo> avatar-services
 cd avatar-services
 
-# Update environment variables
-export AUDIO_BASE_URL="http://your-droplet-ip:8080/audio"
+# Create .env file from template
+cp .env.example .env
+
+# Get your droplet IP
+DROPLET_IP=$(curl -4 -s ifconfig.me)
+
+# Update .env with your droplet IP
+sed -i "s/YOUR_DROPLET_IP_HERE/$DROPLET_IP/g" .env
 
 # Build and start
 docker compose up -d --build
 
 # Check logs
 docker compose logs -f
+```
+
+**Important:** If you change `AUDIO_BASE_URL` after initial deployment, you must clear the cache:
+```bash
+docker compose exec valkey valkey-cli FLUSHDB
+docker compose restart api
 ```
 
 ### 4. Configure Firewall
@@ -305,9 +317,23 @@ docker compose exec valkey valkey-cli llen avatar:jobs
 
 ### Audio Not Playing
 
+**If audio URLs show `localhost` instead of your droplet IP:**
+
+This happens when cached responses contain old URLs. Clear the cache:
+```bash
+# Clear Valkey cache
+docker compose exec valkey valkey-cli FLUSHDB
+
+# Restart API to ensure fresh responses
+docker compose restart api
+```
+
+**Other audio issues:**
+
 1. Check CORS headers in browser console
-2. Verify audio URL is accessible: `curl http://localhost:8080/audio/<file>.ogg`
-3. Check Nginx logs: `docker compose logs nginx`
+2. Verify audio URL is accessible: `curl http://your-droplet-ip:8080/audio/<file>.ogg`
+3. Ensure you're accessing the demo from the droplet IP, not `localhost`
+4. Check Nginx logs: `docker compose logs nginx`
 
 ### Out of Memory
 
