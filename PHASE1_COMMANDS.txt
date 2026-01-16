@@ -1,0 +1,227 @@
+===============================================================================
+PHASE 1: SPATIAL COHERENCE TRACKING - IMPLEMENTATION COMPLETE
+===============================================================================
+
+FILES CREATED:
+- worker/landmarks.py                      MediaPipe helper functions
+- worker/anchor_timeline.py                Timeline generation script
+- scripts/create_idle_video.sh             Idle video helper
+- PHASE1_TRACKING.md                       Complete user documentation
+- PHASE1_IMPLEMENTATION_SUMMARY.md         Implementation summary
+- PHASE1_COMMANDS.txt                      This file
+
+FILES MODIFIED:
+- worker/requirements.txt                  +mediapipe +opencv +numpy
+- docker/Dockerfile.worker                 +system dependencies
+- web-demo/compositor.js                   +tracking support +debug overlay
+- web-demo/demo.js                         +T key shortcut
+- docker/nginx.conf                        +CORS for avatar assets
+- README.md                                +Phase 1 documentation
+
+===============================================================================
+STEP 1: BUILD CONTAINERS (REQUIRED)
+===============================================================================
+
+cd /root/avatar-services
+docker compose build
+
+# Expected: ~2-3 minutes, downloads MediaPipe/OpenCV
+
+===============================================================================
+STEP 2: START SERVICES
+===============================================================================
+
+docker compose up -d
+
+# Verify all services running:
+docker compose ps
+
+# Expected output:
+# avatar-api     (healthy)
+# avatar-worker  (up)
+# avatar-nginx   (up)
+# avatar-valkey  (healthy)
+
+===============================================================================
+STEP 3: CREATE TEST IDLE VIDEO (OPTIONAL - for testing)
+===============================================================================
+
+# Option A: Using helper script
+docker compose exec worker bash /scripts/create_idle_video.sh realistic_female_v1
+
+# Option B: Manual FFmpeg command
+docker compose exec worker bash
+cd /usr/share/nginx/html/avatars/realistic_female_v1
+ffmpeg -loop 1 -i base_face.png -t 4 -c:v libvpx-vp9 -b:v 0 -crf 35 idle.webm
+exit
+
+# Note: For real avatars, use recorded video with natural breathing
+
+===============================================================================
+STEP 4: GENERATE ANCHOR TIMELINE
+===============================================================================
+
+docker compose exec worker python -m anchor_timeline \
+  --avatar-id realistic_female_v1 \
+  --input idle.webm \
+  --sample-rate 3
+
+# Expected output:
+# ✓ Anchor timeline generated successfully
+#   Output: .../realistic_female_v1/anchors_timeline.json
+#   Frames: 40 (approximately)
+
+# Verify file created:
+docker compose exec worker ls -lh /usr/share/nginx/html/avatars/realistic_female_v1/anchors_timeline.json
+
+===============================================================================
+STEP 5: TEST IN BROWSER
+===============================================================================
+
+1. Get your droplet IP:
+   curl -s ifconfig.me
+
+2. Open browser:
+   http://YOUR_DROPLET_IP:8080/
+
+3. Select avatar: "Realistic Female v1"
+
+4. Press 'T' key - should see tracking debug overlay:
+   - Green box: mouth anchor
+   - Cyan box: eyes anchor
+   - Info panel with frame number
+
+5. Test speech:
+   - Enter: "The overlays should track my face perfectly"
+   - Click "Render"
+   - Watch mouth/eyes during playback
+   - They should remain locked to base face
+
+===============================================================================
+STEP 6: VERIFY TRACKING IS ACTIVE
+===============================================================================
+
+# Check browser console (F12):
+# Should see: "✓ Avatar realistic_female_v1 loaded successfully (Tracking: ON)"
+
+# If tracking is OFF:
+# - Check idle.webm exists
+# - Check anchors_timeline.json exists
+# - Check browser console for errors
+
+===============================================================================
+TROUBLESHOOTING
+===============================================================================
+
+Problem: "No module named 'mediapipe'"
+Fix: docker compose build worker && docker compose up -d
+
+Problem: "No face detected" warnings
+Fix: Normal if idle video is static - timeline will skip those frames
+
+Problem: Tracking debug overlay not showing
+Fix: Press 'T' key (must be lowercase or uppercase)
+
+Problem: Idle video not playing
+Fix: Check browser console, try different browser
+
+===============================================================================
+PERFORMANCE CHECK
+===============================================================================
+
+# Timeline generation time:
+# Expected: 3-5 seconds for 4-second video at sample rate 3
+
+# Browser CPU usage:
+# Expected: <1% overhead during playback
+
+# File sizes:
+# idle.webm: ~100-500KB (depends on quality)
+# anchors_timeline.json: ~5-10KB
+
+===============================================================================
+BACKWARDS COMPATIBILITY TEST
+===============================================================================
+
+# Remove timeline to test fallback:
+docker compose exec worker rm /usr/share/nginx/html/avatars/realistic_female_v1/anchors_timeline.json
+
+# Refresh browser - should work with static anchors
+# Console: "ℹ No anchor timeline found, using static anchors"
+
+# Restore timeline:
+docker compose exec worker python -m anchor_timeline --avatar-id realistic_female_v1
+
+===============================================================================
+COMMANDS FOR OTHER AVATARS
+===============================================================================
+
+# For real_photo_avatar:
+docker compose exec worker bash /scripts/create_idle_video.sh real_photo_avatar
+docker compose exec worker python -m anchor_timeline --avatar-id real_photo_avatar
+
+# For professional_avatar:
+docker compose exec worker bash /scripts/create_idle_video.sh professional_avatar
+docker compose exec worker python -m anchor_timeline --avatar-id professional_avatar
+
+===============================================================================
+DEBUG COMMANDS
+===============================================================================
+
+# View worker logs:
+docker compose logs -f worker
+
+# Check avatar directory:
+docker compose exec worker ls -lh /usr/share/nginx/html/avatars/realistic_female_v1/
+
+# View timeline contents:
+docker compose exec worker cat /usr/share/nginx/html/avatars/realistic_female_v1/anchors_timeline.json | head -50
+
+# Check Nginx access:
+curl -I http://localhost:8080/avatars/realistic_female_v1/anchors_timeline.json
+
+===============================================================================
+KEYBOARD SHORTCUTS (IN BROWSER)
+===============================================================================
+
+T - Toggle tracking debug overlay (NEW)
+C - Toggle calibration mode
+Tab - Switch selected anchor (in calibration mode)
+Arrows - Adjust anchor position (in calibration mode)
+Shift+Arrows - Resize anchor (in calibration mode)
+
+===============================================================================
+SUCCESS CRITERIA CHECKLIST
+===============================================================================
+
+[ ] Worker container builds without errors
+[ ] MediaPipe and OpenCV installed
+[ ] Services all running (docker compose ps)
+[ ] Idle video created (optional for test)
+[ ] Timeline generation completes
+[ ] anchors_timeline.json exists
+[ ] Browser loads avatar with "Tracking: ON"
+[ ] Debug overlay shows (press T)
+[ ] Anchors visible and moving (if idle video has motion)
+[ ] Speech playback keeps overlays aligned
+[ ] Works without timeline (backwards compatible)
+
+===============================================================================
+NEXT STEPS
+===============================================================================
+
+1. Test with all avatar packs
+2. Record real idle videos with natural breathing
+3. Generate timelines for all avatars
+4. Demo to stakeholders
+5. Plan Phase 2: Multi-frame extraction and color correction
+
+===============================================================================
+DOCUMENTATION
+===============================================================================
+
+Complete guide: PHASE1_TRACKING.md
+Implementation: PHASE1_IMPLEMENTATION_SUMMARY.md
+Main README: README.md (updated with Phase 1 section)
+
+===============================================================================

@@ -32,6 +32,14 @@ class AvatarCompositor {
         this.headTiltAngle = 0;
         this.breathingScale = 1.0;
         
+        // Anchor tracking state (Phase 1: spatial coherence)
+        this.anchorTimeline = null;
+        this.trackingEnabled = false;
+        this.idleVideoElement = null;
+        this.idleVideoReady = false;
+        this.currentIdleFrame = 0;
+        this.showTrackingAnchors = false;  // Debug visualization
+        
         // Calibration adjustments (persisted in localStorage)
         this.anchorAdjustments = this.loadAnchorAdjustments();
     }
@@ -67,15 +75,83 @@ class AvatarCompositor {
             assets.eyesMask = await this.loadImage(`${basePath}/${this.manifest.eyes.mask}`);
             
             this.assets = assets;
+            
+            // PHASE 1: Load anchor timeline if available
+            await this.loadAnchorTimeline(basePath);
+            
+            // PHASE 1: Load idle video if available and timeline exists
+            if (this.anchorTimeline && this.manifest.base.idleVideo) {
+                await this.loadIdleVideo(basePath, this.manifest.base.idleVideo);
+            }
+            
             this.loaded = true;
             
-            console.log(`✓ Avatar ${avatarId} loaded successfully`);
+            const trackingStatus = this.trackingEnabled ? 'ON' : 'OFF';
+            console.log(`✓ Avatar ${avatarId} loaded successfully (Tracking: ${trackingStatus})`);
             return true;
         } catch (error) {
             console.error('Failed to load avatar:', error);
             this.loaded = false;
             return false;
         }
+    }
+    
+    /**
+     * Load anchor timeline JSON (Phase 1)
+     */
+    async loadAnchorTimeline(basePath) {
+        try {
+            const timelineResponse = await fetch(`${basePath}/anchors_timeline.json`);
+            if (timelineResponse.ok) {
+                this.anchorTimeline = await timelineResponse.json();
+                this.trackingEnabled = true;
+                console.log(`✓ Anchor timeline loaded: ${this.anchorTimeline.frames.length} frames`);
+            } else {
+                console.log('ℹ No anchor timeline found, using static anchors');
+                this.anchorTimeline = null;
+                this.trackingEnabled = false;
+            }
+        } catch (error) {
+            console.log('ℹ Failed to load anchor timeline, using static anchors');
+            this.anchorTimeline = null;
+            this.trackingEnabled = false;
+        }
+    }
+    
+    /**
+     * Load idle video (Phase 1)
+     */
+    async loadIdleVideo(basePath, videoFilename) {
+        return new Promise((resolve, reject) => {
+            try {
+                const video = document.createElement('video');
+                video.crossOrigin = 'anonymous';
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                
+                video.onloadeddata = () => {
+                    this.idleVideoElement = video;
+                    this.idleVideoReady = true;
+                    // Start playing silently
+                    video.play().catch(e => console.warn('Idle video autoplay blocked:', e));
+                    console.log(`✓ Idle video loaded: ${videoFilename}`);
+                    resolve();
+                };
+                
+                video.onerror = () => {
+                    console.warn(`⚠ Failed to load idle video: ${videoFilename}`);
+                    this.idleVideoElement = null;
+                    this.idleVideoReady = false;
+                    resolve();  // Non-fatal error, continue with static base
+                };
+                
+                video.src = `${basePath}/${videoFilename}`;
+            } catch (error) {
+                console.warn('Failed to load idle video:', error);
+                resolve();  // Non-fatal
+            }
+        });
     }
     
     /**
@@ -277,6 +353,11 @@ class AvatarCompositor {
         
         ctx.restore();
         
+        // Draw tracking debug overlay if enabled (Phase 1)
+        if (this.showTrackingAnchors && this.trackingEnabled) {
+            this.renderTrackingDebugOverlay(ctx, w, h);
+        }
+        
         // Draw calibration overlay if enabled
         if (this.calibrationMode) {
             this.renderCalibrationOverlay(ctx, w, h);
@@ -284,17 +365,21 @@ class AvatarCompositor {
     }
     
     /**
-     * Draw base face
+     * Draw base face (Phase 1: supports idle video)
      */
     drawBaseFace(ctx, canvasWidth, canvasHeight) {
-        const img = this.assets.baseFace;
-        const scale = Math.min(canvasWidth / img.width, canvasHeight / img.height);
-        const scaledWidth = img.width * scale;
-        const scaledHeight = img.height * scale;
+        // Use idle video if available and ready
+        const source = (this.idleVideoReady && this.idleVideoElement) 
+            ? this.idleVideoElement 
+            : this.assets.baseFace;
+        
+        const scale = Math.min(canvasWidth / source.width, canvasHeight / source.height);
+        const scaledWidth = source.width * scale || this.manifest.base.width * scale;
+        const scaledHeight = source.height * scale || this.manifest.base.height * scale;
         const x = (canvasWidth - scaledWidth) / 2;
         const y = (canvasHeight - scaledHeight) / 2;
         
-        ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+        ctx.drawImage(source, x, y, scaledWidth, scaledHeight);
     }
     
     /**
@@ -404,10 +489,26 @@ class AvatarCompositor {
     }
     
     /**
-     * Get anchor with calibration adjustments
+     * Get anchor with calibration adjustments (Phase 1: supports tracked anchors)
      */
     getAdjustedAnchor(type) {
-        const anchor = { ...this.manifest[type].anchor };
+        let anchor;
+        
+        // PHASE 1: Use tracked anchors if available
+        if (this.trackingEnabled && this.anchorTimeline && this.idleVideoReady) {
+            const trackedAnchor = this.getTrackedAnchor(type);
+            if (trackedAnchor) {
+                anchor = { ...trackedAnchor };
+            } else {
+                // Fallback to static anchor
+                anchor = { ...this.manifest[type].anchor };
+            }
+        } else {
+            // Use static anchor from manifest
+            anchor = { ...this.manifest[type].anchor };
+        }
+        
+        // Apply calibration adjustments
         const adjustments = this.anchorAdjustments[this.manifest.id] || {};
         const typeAdj = adjustments[type] || { x: 0, y: 0, w: 0, h: 0 };
         
@@ -417,6 +518,46 @@ class AvatarCompositor {
             w: anchor.w + typeAdj.w,
             h: anchor.h + typeAdj.h
         };
+    }
+    
+    /**
+     * Get tracked anchor from timeline (Phase 1)
+     */
+    getTrackedAnchor(type) {
+        if (!this.idleVideoElement || !this.anchorTimeline) {
+            return null;
+        }
+        
+        // Get current video time and fps
+        const currentTime = this.idleVideoElement.currentTime;
+        const fps = this.anchorTimeline.source.fps;
+        const currentFrame = Math.floor(currentTime * fps);
+        
+        // Store for debug display
+        this.currentIdleFrame = currentFrame;
+        
+        // Find nearest timeline entry
+        let nearestEntry = null;
+        let minDistance = Infinity;
+        
+        for (const entry of this.anchorTimeline.frames) {
+            const distance = Math.abs(entry.frame - currentFrame);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestEntry = entry;
+            }
+            
+            // Optimization: if we're past current frame, stop searching
+            if (entry.frame > currentFrame + 10) {
+                break;
+            }
+        }
+        
+        if (nearestEntry && nearestEntry[type]) {
+            return nearestEntry[type];
+        }
+        
+        return null;
     }
     
     /**
@@ -450,14 +591,88 @@ class AvatarCompositor {
         
         // Draw info
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(5, 5, 300, 80);
+        ctx.fillRect(5, 5, 300, 100);
         ctx.fillStyle = '#00ff00';
         ctx.font = '12px monospace';
         ctx.fillText(`Calibration Mode: ${this.selectedAnchor}`, 10, 20);
-        ctx.fillText(`Arrows: move | Shift+Arrows: resize`, 10, 35);
-        ctx.fillText(`Tab: switch anchor | C: toggle calibration`, 10, 50);
-        ctx.fillText(`Mouth: ${mouthAnchor.x},${mouthAnchor.y} ${mouthAnchor.w}x${mouthAnchor.h}`, 10, 65);
-        ctx.fillText(`Eyes:  ${eyesAnchor.x},${eyesAnchor.y} ${eyesAnchor.w}x${eyesAnchor.h}`, 10, 80);
+        ctx.fillText(`Tracking: ${this.trackingEnabled ? 'ON' : 'OFF'}`, 10, 35);
+        ctx.fillText(`Arrows: move | Shift+Arrows: resize`, 10, 50);
+        ctx.fillText(`Tab: switch anchor | C: toggle calibration`, 10, 65);
+        ctx.fillText(`Mouth: ${mouthAnchor.x},${mouthAnchor.y} ${mouthAnchor.w}x${mouthAnchor.h}`, 10, 80);
+        ctx.fillText(`Eyes:  ${eyesAnchor.x},${eyesAnchor.y} ${eyesAnchor.w}x${eyesAnchor.h}`, 10, 95);
+        
+        ctx.restore();
+    }
+    
+    /**
+     * Render tracking debug overlay (Phase 1)
+     */
+    renderTrackingDebugOverlay(ctx, w, h) {
+        const scale = this.getScale(w, h);
+        const offsetX = (w - this.manifest.base.width * scale) / 2;
+        const offsetY = (h - this.manifest.base.height * scale) / 2;
+        
+        ctx.save();
+        
+        // Draw tracked anchor boxes
+        const mouthAnchor = this.getAdjustedAnchor('mouth');
+        const eyesAnchor = this.getAdjustedAnchor('eyes');
+        
+        // Mouth anchor (green)
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+            mouthAnchor.x * scale + offsetX,
+            mouthAnchor.y * scale + offsetY,
+            mouthAnchor.w * scale,
+            mouthAnchor.h * scale
+        );
+        
+        // Eyes anchor (cyan)
+        ctx.strokeStyle = '#00ffff';
+        ctx.strokeRect(
+            eyesAnchor.x * scale + offsetX,
+            eyesAnchor.y * scale + offsetY,
+            eyesAnchor.w * scale,
+            eyesAnchor.h * scale
+        );
+        
+        // Draw anchor centers (crosshairs)
+        if (mouthAnchor.cx && mouthAnchor.cy) {
+            const mcx = mouthAnchor.cx * scale + offsetX;
+            const mcy = mouthAnchor.cy * scale + offsetY;
+            ctx.strokeStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.moveTo(mcx - 5, mcy);
+            ctx.lineTo(mcx + 5, mcy);
+            ctx.moveTo(mcx, mcy - 5);
+            ctx.lineTo(mcx, mcy + 5);
+            ctx.stroke();
+        }
+        
+        if (eyesAnchor.cx && eyesAnchor.cy) {
+            const ecx = eyesAnchor.cx * scale + offsetX;
+            const ecy = eyesAnchor.cy * scale + offsetY;
+            ctx.strokeStyle = '#00ffff';
+            ctx.beginPath();
+            ctx.moveTo(ecx - 5, ecy);
+            ctx.lineTo(ecx + 5, ecy);
+            ctx.moveTo(ecx, ecy - 5);
+            ctx.lineTo(ecx, ecy + 5);
+            ctx.stroke();
+        }
+        
+        // Info panel
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(5, 5, 280, 90);
+        ctx.fillStyle = '#00ff00';
+        ctx.font = '12px monospace';
+        ctx.fillText('TRACKING DEBUG', 10, 20);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`Frame: ${this.currentIdleFrame}`, 10, 35);
+        ctx.fillText(`Tracking: ${this.trackingEnabled ? 'ACTIVE' : 'INACTIVE'}`, 10, 50);
+        ctx.fillText(`Mouth: ${mouthAnchor.x},${mouthAnchor.y}`, 10, 65);
+        ctx.fillText(`Eyes:  ${eyesAnchor.x},${eyesAnchor.y}`, 10, 80);
         
         ctx.restore();
     }
@@ -528,6 +743,14 @@ class AvatarCompositor {
     toggleCalibration() {
         this.calibrationMode = !this.calibrationMode;
         return this.calibrationMode;
+    }
+    
+    /**
+     * Toggle tracking debug overlay (Phase 1)
+     */
+    toggleTrackingDebug() {
+        this.showTrackingAnchors = !this.showTrackingAnchors;
+        return this.showTrackingAnchors;
     }
     
     /**

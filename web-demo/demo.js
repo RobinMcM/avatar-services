@@ -139,6 +139,14 @@ function setupEventListeners() {
  * Handle keyboard input for calibration
  */
 function handleKeyboard(e) {
+    // Allow T key to work without calibration mode (Phase 1 tracking debug)
+    if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        const isEnabled = compositor.toggleTrackingDebug();
+        console.log(`Tracking debug: ${isEnabled ? 'ON' : 'OFF'}`);
+        return;
+    }
+    
     if (!compositor.calibrationMode) return;
     
     const step = e.shiftKey ? 5 : 1;

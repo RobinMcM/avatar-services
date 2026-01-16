@@ -9,6 +9,8 @@ A production-ready avatar animation service that generates TTS audio and synchro
 - **Eye Animation**: Generates realistic blink and saccade events
 - **Photoreal Avatars**: Composite-based 2D avatars using real photos/video with masked layers
 - **Avatar Packs**: Modular system for custom avatar assets (base face, mouth sprites, eye frames)
+- **Spatial Coherence Tracking (Phase 1)**: CPU-based face landmark detection eliminates "floating overlays"
+- **Dynamic Anchor Positioning**: Overlays follow face during idle video playback using MediaPipe
 - **Calibration Tools**: Browser-based calibration overlay for fine-tuning avatar positioning
 - **Micro-Motion**: Subtle idle animations (head bob, breathing, natural blinks)
 - **Caching**: Results cached by content hash for instant repeated requests
@@ -226,6 +228,51 @@ The web demo uses a photoreal compositing system with modular avatar packs.
   "direction": null       // Saccade direction (if applicable)
 }
 ```
+
+## Phase 1: Spatial Coherence Tracking
+
+**NEW**: Avatar overlays now track face movements using CPU-based landmark detection, eliminating the "floating overlay" problem.
+
+### What is it?
+
+Traditional static anchors cause mouth and eye overlays to drift when the base face has subtle motion (breathing, micro-movements). Phase 1 uses MediaPipe Face Mesh to generate an anchor timeline that dynamically positions overlays frame-by-frame.
+
+### Quick Setup
+
+1. **Create or obtain an idle video** (~4 seconds) for your avatar:
+```bash
+# Option A: Create from static image
+cd web-demo/avatars/realistic_female_v1
+ffmpeg -loop 1 -i base_face.png -t 4 -c:v libvpx-vp9 -b:v 0 -crf 35 idle.webm
+```
+
+2. **Generate anchor timeline**:
+```bash
+docker compose exec worker python -m anchor_timeline \
+  --avatar-id realistic_female_v1 \
+  --input idle.webm
+```
+
+3. **Verify in browser**:
+   - Open demo: `http://localhost:8080`
+   - Press `T` key to toggle tracking debug overlay
+   - Watch anchors follow face during idle video playback
+
+### Features
+
+- ✅ CPU-only (MediaPipe Face Mesh)
+- ✅ ~3-5 seconds processing per 4-second video
+- ✅ Backwards compatible (falls back to static anchors if timeline missing)
+- ✅ Debug visualization (`T` key in browser)
+- ✅ Works with existing calibration tools
+
+### Documentation
+
+See [PHASE1_TRACKING.md](PHASE1_TRACKING.md) for complete guide including:
+- Timeline generation parameters
+- Troubleshooting
+- Performance tuning
+- Developer notes
 
 ## Deployment to DigitalOcean
 
