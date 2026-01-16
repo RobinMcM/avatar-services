@@ -44,6 +44,16 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
     setupEventListeners();
+    
+    // Check if HTTPS or localhost
+    const isSecure = window.location.protocol === 'https:' || 
+                     window.location.hostname === 'localhost' || 
+                     window.location.hostname === '127.0.0.1';
+    
+    if (!isSecure) {
+        document.getElementById('https-notice').style.display = 'block';
+    }
+    
     await detectCameras();
 }
 
@@ -68,6 +78,24 @@ function setupEventListeners() {
 
 async function detectCameras() {
     try {
+        // Check if mediaDevices API is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+            showError('Camera access requires HTTPS. Please access this page via HTTPS or use localhost for testing. Current URL: ' + window.location.href);
+            return;
+        }
+        
+        // First, request permission to access camera (this triggers the browser popup)
+        try {
+            const permissionStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            // Stop the stream immediately, we just wanted to trigger the permission request
+            permissionStream.getTracks().forEach(track => track.stop());
+        } catch (permError) {
+            console.error('Permission denied:', permError);
+            showError('Camera and microphone access denied. Please allow access and reload the page. Error: ' + permError.message);
+            return;
+        }
+        
+        // Now enumerate devices (should have labels now)
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
         
@@ -90,7 +118,7 @@ async function detectCameras() {
         validateSetup();
     } catch (error) {
         console.error('Error detecting cameras:', error);
-        showError('Failed to detect cameras. Please allow camera access and reload.');
+        showError('Failed to detect cameras. Please allow camera access and reload. Error: ' + error.message);
     }
 }
 
