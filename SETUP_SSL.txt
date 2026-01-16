@@ -1,0 +1,183 @@
+================================================================================
+SELF-SIGNED SSL CERTIFICATE SETUP
+================================================================================
+
+Follow these steps to enable HTTPS for the Capture Studio camera access.
+
+================================================================================
+STEP 1: GENERATE SSL CERTIFICATE
+================================================================================
+
+Run these commands on your server:
+
+cd /root/avatar-services
+chmod +x docker/generate-ssl.sh
+bash docker/generate-ssl.sh
+
+# Expected output:
+# ✓ SSL certificate generated successfully
+#   Certificate: docker/ssl/nginx-selfsigned.crt
+#   Key: docker/ssl/nginx-selfsigned.key
+
+================================================================================
+STEP 2: VERIFY SSL FILES CREATED
+================================================================================
+
+ls -lh docker/ssl/
+
+# Expected output:
+# nginx-selfsigned.crt
+# nginx-selfsigned.key
+
+================================================================================
+STEP 3: OPEN FIREWALL PORT 443
+================================================================================
+
+# If using UFW firewall:
+ufw allow 443/tcp
+ufw status
+
+# If using iptables:
+iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+
+# If using DigitalOcean firewall (through web console):
+# Go to Networking → Firewalls → Add Rule
+# Type: HTTPS, Protocol: TCP, Port: 443, Sources: All IPv4, All IPv6
+
+================================================================================
+STEP 4: RESTART DOCKER SERVICES
+================================================================================
+
+cd /root/avatar-services
+docker compose down
+docker compose up -d
+
+# Wait for containers to start (~10 seconds)
+docker compose ps
+
+# Expected: All services running/healthy
+
+================================================================================
+STEP 5: TEST HTTPS ACCESS
+================================================================================
+
+# Test from server:
+curl -k -I https://localhost/capture/
+
+# Expected: HTTP/1.1 200 OK
+
+# Test from external:
+curl -k -I https://138.68.187.23/capture/
+
+# Expected: HTTP/1.1 200 OK
+
+================================================================================
+STEP 6: ACCESS IN BROWSER
+================================================================================
+
+Open in your browser:
+https://138.68.187.23/capture/
+
+Browser will show security warning:
+1. Click "Advanced"
+2. Click "Proceed to 138.68.187.23 (unsafe)"
+3. Camera permission popup should appear!
+4. Click "Allow"
+
+Note: You only need to accept the warning ONCE per browser.
+
+================================================================================
+AVAILABLE URLs
+================================================================================
+
+HTTPS (Recommended - Camera works):
+https://138.68.187.23/capture/      - Capture Studio
+https://138.68.187.23/              - Main Demo
+https://138.68.187.23:8000/health   - API Health (HTTP still)
+
+HTTP (Fallback - Camera won't work):
+http://138.68.187.23:8080/capture/  - Capture Studio
+http://138.68.187.23:8080/          - Main Demo
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Problem: Port 443 not accessible
+Fix: Check firewall settings (see Step 3)
+     Verify port is open: netstat -tlnp | grep 443
+
+Problem: Certificate files not found
+Fix: Regenerate certificate (Step 1)
+     Check permissions: ls -l docker/ssl/
+
+Problem: Nginx won't start
+Fix: Check nginx logs: docker compose logs nginx
+     Test config: docker compose exec nginx nginx -t
+
+Problem: Browser still says camera not allowed
+Fix: Make sure you're using HTTPS (not HTTP)
+     Clear browser cache and reload
+     Try in incognito/private window
+
+Problem: "NET::ERR_CERT_AUTHORITY_INVALID" in browser
+Fix: This is NORMAL for self-signed certificates
+     Click "Advanced" then "Proceed anyway"
+     Camera will work after accepting
+
+================================================================================
+UPGRADING TO PROPER SSL (OPTIONAL)
+================================================================================
+
+If you want to remove the browser warning, you need:
+
+1. A domain name (free options: duckdns.org, freenom.com)
+   Example: yourname.duckdns.org → 138.68.187.23
+
+2. Point domain to your server IP
+
+3. Install Let's Encrypt (Certbot):
+   apt install certbot python3-certbot-nginx
+   certbot --nginx -d yourname.duckdns.org
+
+4. Let's Encrypt will automatically configure nginx
+
+5. Certificates auto-renew every 90 days
+
+================================================================================
+SECURITY NOTES
+================================================================================
+
+⚠️  Self-signed certificates are fine for testing/development
+⚠️  For production, use proper SSL (Let's Encrypt)
+⚠️  The certificate expires in 365 days
+⚠️  Browsers will show warning - this is expected
+⚠️  Users can safely click through the warning
+
+✓  Camera/microphone access will work after accepting warning
+✓  All traffic is encrypted (even with self-signed cert)
+✓  HTTPS is required by browsers for camera access
+
+================================================================================
+QUICK REFERENCE
+================================================================================
+
+Generate cert:    bash docker/generate-ssl.sh
+Restart services: docker compose down && docker compose up -d
+View logs:        docker compose logs nginx
+Test config:      docker compose exec nginx nginx -t
+Check ports:      netstat -tlnp | grep -E '80|443'
+
+HTTPS URL:        https://138.68.187.23/capture/
+HTTP URL:         http://138.68.187.23:8080/capture/ (camera won't work)
+
+================================================================================
+DONE!
+================================================================================
+
+After completing these steps, access:
+https://138.68.187.23/capture/
+
+Accept the security warning once, then the camera will work!
+
+================================================================================
