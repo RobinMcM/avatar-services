@@ -161,6 +161,24 @@ class ValkeyClient:
             return True
         except Exception:
             return False
+    
+    async def set_json(self, key: str, data: dict, ttl: Optional[int] = None) -> None:
+        """Store JSON data in Valkey."""
+        import json as json_module
+        await self._client.set(key, json_module.dumps(data), ex=ttl)
+    
+    async def get_json(self, key: str) -> Optional[dict]:
+        """Retrieve JSON data from Valkey."""
+        import json as json_module
+        data = await self._client.get(key)
+        if data:
+            return json_module.loads(data)
+        return None
+    
+    async def push_job(self, queue_key: str, job_data: dict) -> None:
+        """Push a job to a queue."""
+        import json as json_module
+        await self._client.rpush(queue_key, json_module.dumps(job_data))
 
 
 # Singleton instance

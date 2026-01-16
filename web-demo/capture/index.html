@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture Studio - Avatar Service</title>
+    <link rel="stylesheet" href="/capture/capture.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎥 Capture Studio</h1>
+            <p>Record yourself to create a custom photoreal avatar</p>
+        </header>
+
+        <!-- Step 1: Setup -->
+        <div id="step-setup" class="step active">
+            <div class="card">
+                <h2>Setup</h2>
+                <div class="form-group">
+                    <label for="avatar-id-input">Avatar ID (alphanumeric, no spaces):</label>
+                    <input type="text" id="avatar-id-input" placeholder="my_avatar" pattern="[a-zA-Z0-9_]+" required>
+                    <small>This will be your avatar's unique identifier</small>
+                </div>
+                <div class="form-group">
+                    <label>Camera:</label>
+                    <select id="camera-select">
+                        <option value="">Detecting cameras...</option>
+                    </select>
+                </div>
+                <button id="start-setup-btn" class="btn btn-primary" disabled>Start Setup</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Alignment -->
+        <div id="step-alignment" class="step">
+            <div class="card">
+                <h2>Camera Alignment</h2>
+                <div class="video-container">
+                    <video id="preview-video" autoplay muted playsinline></video>
+                    <canvas id="alignment-canvas"></canvas>
+                    <div class="alignment-guide">
+                        <div class="face-oval"></div>
+                        <div class="eye-line"></div>
+                        <div class="mouth-line"></div>
+                    </div>
+                </div>
+                <div class="checklist">
+                    <h3>Checklist:</h3>
+                    <ul>
+                        <li id="check-face">✓ Face centered in oval</li>
+                        <li id="check-distance">✓ Face fills ~40% of frame</li>
+                        <li id="check-lighting">✓ Even lighting, no harsh shadows</li>
+                        <li id="check-angle">✓ Looking straight at camera</li>
+                    </ul>
+                </div>
+                <div class="button-group">
+                    <button id="back-to-setup-btn" class="btn btn-secondary">Back</button>
+                    <button id="start-recording-btn" class="btn btn-primary">Start Recording</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Recording -->
+        <div id="step-recording" class="step">
+            <div class="card">
+                <h2>Recording in Progress</h2>
+                <div class="video-container">
+                    <video id="recording-video" autoplay muted playsinline></video>
+                    <div class="recording-indicator">● REC</div>
+                </div>
+                <div class="prompt-display">
+                    <div class="prompt-text" id="prompt-text">Get ready...</div>
+                    <div class="prompt-countdown" id="prompt-countdown"></div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="recording-progress"></div>
+                </div>
+                <div class="recording-info">
+                    <p>Segment: <span id="current-segment">-</span></p>
+                    <p>Time: <span id="recording-time">0s</span> / <span id="total-time">42s</span></p>
+                </div>
+                <button id="stop-recording-btn" class="btn btn-danger">Stop Recording</button>
+            </div>
+        </div>
+
+        <!-- Step 4: Upload & Processing -->
+        <div id="step-processing" class="step">
+            <div class="card">
+                <h2>Processing Avatar Pack</h2>
+                <div class="status-display">
+                    <div class="status-icon" id="status-icon">⏳</div>
+                    <div class="status-text" id="status-text">Uploading recording...</div>
+                    <div class="status-progress" id="status-progress">0%</div>
+                </div>
+                <div class="processing-log" id="processing-log"></div>
+            </div>
+        </div>
+
+        <!-- Step 5: Complete -->
+        <div id="step-complete" class="step">
+            <div class="card">
+                <h2>✅ Avatar Pack Created!</h2>
+                <div class="success-message">
+                    <p>Your avatar <strong id="final-avatar-id"></strong> has been generated successfully.</p>
+                </div>
+                <div class="button-group">
+                    <a id="open-demo-btn" class="btn btn-primary" href="/" target="_blank">Open in Demo</a>
+                    <a id="download-zip-btn" class="btn btn-secondary" href="#" download>Download ZIP</a>
+                    <button id="create-another-btn" class="btn btn-secondary">Create Another</button>
+                </div>
+                <div class="avatar-info">
+                    <h3>What's included:</h3>
+                    <ul>
+                        <li>Base face image (base_face.png)</li>
+                        <li>Idle video with tracking (idle.webm + anchors_timeline.json)</li>
+                        <li>Mouth viseme spritesheet (mouth_sprites.png)</li>
+                        <li>Eye frames (open/half/closed)</li>
+                        <li>Masks and manifest</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Display -->
+        <div id="error-display" class="error-card" style="display: none;">
+            <h3>❌ Error</h3>
+            <p id="error-message"></p>
+            <button id="dismiss-error-btn" class="btn btn-secondary">Dismiss</button>
+        </div>
+    </div>
+
+    <script src="/capture/capture.js"></script>
+</body>
+</html>

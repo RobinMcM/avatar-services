@@ -1,0 +1,288 @@
+===============================================================================
+CAPTURE STUDIO MVP - QUICK START GUIDE
+===============================================================================
+
+WHAT WAS BUILT:
+- Complete web-based recording studio at /capture
+- Guided 42-second timeline with prompts and beeps
+- Automatic avatar pack generation using MediaPipe + FFmpeg
+- Integration with existing Phase 1 tracking system
+- Download and demo preview features
+
+FILES CREATED: 13 new files
+FILES MODIFIED: 7 files
+
+===============================================================================
+COMMANDS TO EXECUTE (IN ORDER)
+===============================================================================
+
+STEP 1: BUILD CONTAINERS
+-------------------------
+cd /root/avatar-services
+docker compose build
+
+# Expected: ~2-3 minutes
+# Downloads MediaPipe, OpenCV dependencies
+
+STEP 2: START SERVICES
+-----------------------
+docker compose down
+docker compose up -d
+
+STEP 3: VERIFY RUNNING
+----------------------
+docker compose ps
+
+# Expected output:
+# avatar-api     (healthy)
+# avatar-worker  (up)
+# avatar-nginx   (up)
+# avatar-valkey  (healthy)
+
+STEP 4: CHECK LOGS
+------------------
+docker compose logs -f worker
+
+# Watch for:
+# "worker_started"
+# No errors
+
+===============================================================================
+TESTING THE CAPTURE STUDIO
+===============================================================================
+
+STEP 1: GET YOUR IP
+-------------------
+curl -s ifconfig.me
+
+STEP 2: OPEN CAPTURE STUDIO
+---------------------------
+Browser: http://YOUR_IP:8080/capture
+
+STEP 3: RECORD AVATAR
+---------------------
+1. Enter avatar ID (e.g., "demo_avatar_001")
+2. Select camera
+3. Click "Start Setup"
+4. Align face in oval guide
+5. Click "Start Recording"
+6. Follow prompts for 42 seconds:
+   - Idle (breathe)
+   - REST, AA, EE, OH, OO, FF, TH
+   - Blinks
+   - Eyes open/half/closed
+   - Gaze directions
+7. Wait for upload and processing (~1-2 minutes)
+
+STEP 4: VERIFY RESULT
+---------------------
+# Check generated files
+docker compose exec worker ls -lh /data/avatars/demo_avatar_001/
+
+# Expected files:
+# base_face.png
+# idle.webm
+# anchors_timeline.json
+# mouth_sprites.png
+# mouth_mask.png
+# eyes_open.png
+# eyes_half.png
+# eyes_closed.png
+# eyes_mask.png
+# manifest.json
+
+STEP 5: TEST IN DEMO
+--------------------
+1. Click "Open in Demo" button
+2. Avatar should load automatically
+3. Enter text: "Hello, I am a custom avatar"
+4. Click "Render"
+5. Watch avatar speak with your mouth and eyes!
+
+STEP 6: DOWNLOAD ZIP
+--------------------
+1. Click "Download ZIP" button
+2. Extract locally
+3. Verify all files present
+
+===============================================================================
+API ENDPOINTS (FOR TESTING)
+===============================================================================
+
+# Health check
+curl http://localhost:8000/health
+
+# Upload (requires video file)
+curl -X POST http://localhost:8000/v1/capture/upload \
+  -F "video=@recording.webm" \
+  -F "avatar_id=api_test"
+
+# Process
+curl -X POST http://localhost:8000/v1/capture/process \
+  -H "Content-Type: application/json" \
+  -d '{"capture_id": "CAPTURE_ID", "avatar_id": "api_test"}'
+
+# Status
+curl http://localhost:8000/v1/capture/jobs/JOB_ID
+
+===============================================================================
+FILE LOCATIONS
+===============================================================================
+
+Frontend:
+/root/avatar-services/web-demo/capture/
+├── index.html
+├── capture.js
+└── capture.css
+
+Backend:
+/root/avatar-services/api/capture.py
+
+Worker:
+/root/avatar-services/worker/capture_processor.py
+
+Generated Avatars:
+/data/avatars/{avatar_id}/
+
+===============================================================================
+TROUBLESHOOTING
+===============================================================================
+
+Problem: Camera not working
+Fix: Allow permissions, reload page, try Chrome/Firefox
+
+Problem: Upload fails
+Fix: Check file size (<500MB), check network
+     docker compose logs api
+
+Problem: Processing stuck
+Fix: docker compose logs worker
+     Look for MediaPipe or FFmpeg errors
+     docker compose restart worker
+
+Problem: Face not detected
+Fix: Better lighting, face clearly visible
+     Face should fill ~40% of frame
+
+Problem: Assets missing
+Fix: Check worker logs for specific step that failed
+     Verify FFmpeg: docker compose exec worker ffmpeg -version
+     Verify MediaPipe: docker compose exec worker python -c "import mediapipe"
+
+Problem: Demo won't load avatar
+Fix: curl http://localhost:8080/avatars/demo_avatar_001/manifest.json
+     Check CORS in browser console
+     Check nginx logs: docker compose logs nginx
+
+===============================================================================
+RECORDING BEST PRACTICES
+===============================================================================
+
+✓ Even lighting (no harsh shadows)
+✓ Face centered in oval guide
+✓ Look directly at camera
+✓ Good microphone (for beeps)
+✓ Stable camera position
+✓ Plain background (optional but helps)
+✓ 1080p or higher resolution
+✓ Follow prompts carefully
+✓ Hold each expression for full 2 seconds
+✓ Natural blinks (don't force)
+
+===============================================================================
+PERFORMANCE EXPECTATIONS
+===============================================================================
+
+Recording: 42 seconds (fixed)
+Upload: 5-30 seconds (depends on connection)
+Processing: 30-60 seconds total
+  - Video normalization: ~10s
+  - Frame extraction: ~15s
+  - Landmark detection: ~5-10s
+  - Asset generation: ~10s
+  - ZIP creation: ~5s
+
+Total time: ~2-3 minutes from start to download
+
+===============================================================================
+WHAT'S INCLUDED IN GENERATED PACK
+===============================================================================
+
+base_face.png           512×640 PNG - Base face image
+idle.webm               512×640 WebM - 4-second idle loop
+anchors_timeline.json   JSON - Frame-by-frame landmarks (Phase 1)
+mouth_sprites.png       2240×240 PNG - 7 viseme frames
+mouth_mask.png          320×240 PNG - Feathered ellipse
+eyes_open.png           320×120 PNG - Eyes fully open
+eyes_half.png           320×120 PNG - Eyes half closed
+eyes_closed.png         320×120 PNG - Eyes fully closed
+eyes_mask.png           320×120 PNG - Feathered ellipse
+manifest.json           JSON - Avatar configuration
+avatar_id.zip           ZIP - Complete package
+
+===============================================================================
+SUCCESS CHECKLIST
+===============================================================================
+
+[ ] Docker containers built successfully
+[ ] All services running (docker compose ps)
+[ ] Capture Studio page loads at /capture
+[ ] Camera preview works
+[ ] Recording completes full 42 seconds
+[ ] Upload succeeds with progress bar
+[ ] Processing completes (status → completed)
+[ ] All 10 files generated in /data/avatars/
+[ ] "Open in Demo" loads avatar correctly
+[ ] Mouth animates during TTS playback
+[ ] Eyes blink correctly
+[ ] ZIP download works
+[ ] Extracted ZIP contains all files
+
+===============================================================================
+NEXT STEPS AFTER SUCCESS
+===============================================================================
+
+1. Record multiple performers
+2. Test different lighting conditions
+3. Build avatar library
+4. Share demo with stakeholders
+5. Gather feedback for Phase 2 improvements
+
+===============================================================================
+DOCUMENTATION
+===============================================================================
+
+Complete Guide: CAPTURE_STUDIO_IMPLEMENTATION.md
+Phase 1 Tracking: PHASE1_TRACKING.md
+Main README: README.md
+
+===============================================================================
+SUPPORT COMMANDS
+===============================================================================
+
+# View all logs
+docker compose logs
+
+# Restart specific service
+docker compose restart worker
+docker compose restart api
+
+# Shell into worker
+docker compose exec worker bash
+
+# Check disk usage
+docker compose exec worker df -h /data
+
+# Clean old captures (optional)
+docker compose exec worker rm -rf /data/captures/*
+
+# Stop everything
+docker compose down
+
+# Nuclear option (clean slate)
+docker compose down -v
+docker system prune -a
+docker compose build --no-cache
+docker compose up -d
+
+===============================================================================

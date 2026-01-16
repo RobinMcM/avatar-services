@@ -84,3 +84,36 @@ class ErrorResponse(BaseModel):
     """Error response model."""
     error: str = Field(..., description="Error message")
     detail: Optional[str] = Field(default=None, description="Detailed error info")
+
+
+# Capture Studio Models
+
+class CaptureUploadResponse(BaseModel):
+    """Response from capture video upload."""
+    capture_id: str = Field(..., description="Unique capture identifier")
+    filename: str = Field(..., description="Uploaded filename")
+    size_bytes: int = Field(..., description="File size in bytes")
+
+
+class CaptureProcessRequest(BaseModel):
+    """Request to process a captured video."""
+    capture_id: str = Field(..., description="Capture ID from upload")
+    avatar_id: str = Field(..., description="Avatar identifier")
+
+
+class CaptureProcessResponse(BaseModel):
+    """Response from starting capture processing."""
+    job_id: str = Field(..., description="Processing job identifier")
+    status: str = Field(default="queued", description="Initial job status")
+
+
+class CaptureJobStatus(BaseModel):
+    """Status of a capture processing job."""
+    job_id: str = Field(..., description="Job identifier")
+    status: str = Field(..., description="Job status: queued, processing, completed, failed")
+    progress: Optional[int] = Field(None, description="Progress percentage (0-100)")
+    avatar_id: Optional[str] = Field(None, description="Avatar ID being generated")
+    manifest_url: Optional[str] = Field(None, description="URL to generated manifest.json")
+    zip_url: Optional[str] = Field(None, description="URL to download avatar pack ZIP")
+    error: Optional[str] = Field(None, description="Error message if failed")
+    logs: Optional[list] = Field(None, description="Processing logs")

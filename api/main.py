@@ -107,6 +107,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include capture studio router
+from capture import router as capture_router
+app.include_router(capture_router)
+
 
 # Dependency to get Valkey client
 async def get_valkey() -> ValkeyClient:

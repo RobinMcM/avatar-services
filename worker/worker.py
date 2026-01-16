@@ -14,6 +14,7 @@ import structlog
 
 from tts import synthesize_speech
 from lipsync import extract_mouth_cues, generate_eye_events
+from capture_processor import process_capture_job
 
 # Configure structured logging
 structlog.configure(
@@ -44,6 +45,7 @@ PIPER_MODEL = os.getenv("PIPER_MODEL", "/opt/piper/voices/en_US-lessac-medium.on
 
 # Queue keys
 JOB_QUEUE_KEY = "avatar:jobs"
+CAPTURE_JOB_QUEUE_KEY = "avatar:capture:jobs"
 RESULT_KEY_PREFIX = "avatar:result:"
 CACHE_KEY_PREFIX = "avatar:cache:"
 
@@ -241,30 +243,48 @@ def run_worker():
     # Main processing loop
     while running:
         try:
-            # Blocking pop from queue with timeout
-            result = redis_client.brpop(JOB_QUEUE_KEY, timeout=5)
+            # Check both queues (render and capture)
+            result = redis_client.brpop([JOB_QUEUE_KEY, CAPTURE_JOB_QUEUE_KEY], timeout=5)
             
             if result is None:
                 # Timeout, no jobs available
                 continue
             
-            _, job_json = result
+            queue_key, job_json = result
             job_data = json.loads(job_json)
             
-            # Check if result already exists (avoid reprocessing)
-            render_id = job_data["render_id"]
-            existing = redis_client.get(f"{RESULT_KEY_PREFIX}{render_id}")
-            if existing:
-                existing_data = json.loads(existing)
-                if existing_data.get("status") in ["completed", "failed"]:
-                    logger.info("skipping_already_processed", render_id=render_id)
-                    continue
+            # Determine job type
+            job_type = job_data.get('type', 'render')
             
-            # Process the job
-            result = process_job(job_data, redis_client)
-            
-            # Store result and cache
-            store_result(redis_client, result, job_data["cache_key"])
+            if job_type == 'capture_processing':
+                # Handle capture processing job
+                logger.info("processing_capture_job", job_id=job_data.get('job_id'))
+                capture_result = process_capture_job(job_data, redis_client)
+                
+                # Update final status
+                job_id = job_data['job_id']
+                status_key = f"avatar:capture:status:{job_id}"
+                status_data = json.loads(redis_client.get(status_key) or '{}')
+                status_data.update(capture_result)
+                redis_client.set(status_key, json.dumps(status_data), ex=3600)
+                
+            else:
+                # Handle render job
+                render_id = job_data["render_id"]
+                
+                # Check if result already exists (avoid reprocessing)
+                existing = redis_client.get(f"{RESULT_KEY_PREFIX}{render_id}")
+                if existing:
+                    existing_data = json.loads(existing)
+                    if existing_data.get("status") in ["completed", "failed"]:
+                        logger.info("skipping_already_processed", render_id=render_id)
+                        continue
+                
+                # Process the job
+                result = process_job(job_data, redis_client)
+                
+                # Store result and cache
+                store_result(redis_client, result, job_data["cache_key"])
         
         except redis.ConnectionError as e:
             logger.error("valkey_connection_error", error=str(e))

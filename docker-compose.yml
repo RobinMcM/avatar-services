@@ -62,7 +62,7 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - shared_data:/data:ro
+      - shared_data:/data
       - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./web-demo:/usr/share/nginx/html:ro
     depends_on:
