@@ -1,0 +1,73 @@
+{
+  "id": "professional_avatar",
+  "displayName": "Professional Avatar",
+  "version": "1.0.0",
+  "description": "Avatar created from source photo",
+  "base": {
+    "type": "image",
+    "src": "base_face.png",
+    "width": 512,
+    "height": 640
+  },
+  "mouth": {
+    "spritesheet": "mouth_sprites.png",
+    "mask": "mouth_mask.png",
+    "frameWidth": 160,
+    "frameHeight": 120,
+    "visemes": [
+      "REST",
+      "AA",
+      "EE",
+      "OH",
+      "OO",
+      "FF",
+      "TH"
+    ],
+    "anchor": {
+      "x": 176,
+      "y": 400,
+      "w": 160,
+      "h": 120
+    },
+    "featherPx": 12,
+    "blendMode": "normal"
+  },
+  "eyes": {
+    "frames": {
+      "open": "eyes_open.png",
+      "half": "eyes_half.png",
+      "closed": "eyes_closed.png"
+    },
+    "mask": "eyes_mask.png",
+    "anchor": {
+      "x": 140,
+      "y": 240,
+      "w": 232,
+      "h": 80
+    },
+    "pupil": {
+      "enabled": true,
+      "maxOffsetX": 8,
+      "maxOffsetY": 6
+    },
+    "featherPx": 8,
+    "blendMode": "normal"
+  },
+  "mapping": {
+    "REST": "REST",
+    "AA": "AA",
+    "EE": "EE",
+    "OH": "OH",
+    "OO": "OO",
+    "FF": "FF",
+    "TH": "TH"
+  },
+  "microMotion": {
+    "enabled": true,
+    "headBobAmplitude": 2,
+    "headBobFrequency": 0.5,
+    "headTiltAmplitude": 0.8,
+    "breathingScale": 0.003,
+    "breathingFrequency": 0.25
+  }
+}
